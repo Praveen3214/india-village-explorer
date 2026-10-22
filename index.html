@@ -260,7 +260,7 @@ function fit(bounds, opts) {   // layout may have changed since init; Leaflet dr
 }
 new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById("map"));
 map.createPane("lines").style.zIndex = 450;
-const mainR = L.canvas({ padding: 0.3, tolerance: 1 });
+const mainR = L.canvas({ padding: 0.3, tolerance: L.Browser.touch ? 6 : 1 });   // fingers need a bigger hit area for dots
 const lineR = L.canvas({ pane: "lines", padding: 0.3 });
 const ctxLayer = L.layerGroup().addTo(map), mainLayer = L.layerGroup().addTo(map), lineLayer = L.layerGroup().addTo(map);
 const hoverLine = L.polygon([], { renderer: lineR, pane: "lines", interactive: false, fill: false, weight: 2 }).addTo(map);
