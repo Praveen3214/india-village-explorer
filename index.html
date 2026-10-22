@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>India Village Explorer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3f0;
+  --surface-1: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e2e1dc;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --accent: #2a78d6;
+  --nodata: #e6e5e1;
+  --placeholder: #b9b8b1;
+  --context-fill: #ecebe7;
+  --context-line: #c9c8c1;
+  --outline: #3a3936;
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5;
+  --seq-5: #256abf; --seq-6: #184f95; --seq-7: #0d366b;
+  --good: #0ca30c; --bad: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #121211; --surface-1: #1a1a19; --surface-2: #252523; --border: #34342f;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --accent: #3987e5; --nodata: #2c2c29; --placeholder: #55554f;
+    --context-fill: #222220; --context-line: #44443f; --outline: #e8e7e2;
+    --cat-1: #3987e5; --cat-2: #d95926;
+    --seq-1: #0d366b; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #3987e5;
+    --seq-5: #6da7ec; --seq-6: #9ec5f4; --seq-7: #cde2fb;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211; --surface-1: #1a1a19; --surface-2: #252523; --border: #34342f;
+  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --accent: #3987e5; --nodata: #2c2c29; --placeholder: #55554f;
+  --context-fill: #222220; --context-line: #44443f; --outline: #e8e7e2;
+  --cat-1: #3987e5; --cat-2: #d95926;
+  --seq-1: #0d366b; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #3987e5;
+  --seq-5: #6da7ec; --seq-6: #9ec5f4; --seq-7: #cde2fb;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  display: flex; flex-direction: column;
+}
+header { padding: 10px 16px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.crumbs { color: var(--text-secondary); font-size: 13px; }
+.crumbs a { color: var(--accent); text-decoration: none; cursor: pointer; }
+.crumbs a:hover { text-decoration: underline; }
+.crumbs .sep { margin: 0 6px; color: var(--text-muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 10px; padding: 10px 16px; align-items: end; }
+.ctl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ctl label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
+select, input[type=search], button {
+  font: inherit; color: var(--text-primary); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; min-height: 34px;
+}
+select { max-width: 230px; }
+select:disabled, input:disabled { opacity: 0.5; }
+button { cursor: pointer; }
+button:hover { border-color: var(--text-muted); }
+.vsearch { display: flex; gap: 6px; }
+.vsearch input { width: 130px; }
+.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); min-height: 34px; }
+main { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 0 16px 12px; }
+#map { flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-1); }
+aside { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 10px; min-height: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tabs button { flex: 1; border: 0; border-radius: 0; background: none; padding: 10px; color: var(--text-secondary); font-weight: 600; }
+.tabs button[aria-selected=true] { color: var(--text-primary); box-shadow: inset 0 -2px 0 var(--accent); }
+.pane { overflow: auto; padding: 14px 16px 18px; flex: 1; min-height: 0; }
+.pane[hidden] { display: none; }
+.scope-kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
+.scope-name { font-size: 20px; font-weight: 650; margin: 2px 0 2px; letter-spacing: -0.01em; }
+.scope-sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 12px; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.tile { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.tile .k { font-size: 11px; color: var(--text-secondary); }
+.tile .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tile.wide { grid-column: span 2; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 16px 0 6px; }
+dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 13px; }
+dl.kv dt { color: var(--text-secondary); }
+dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.bars { display: grid; grid-template-columns: minmax(0, 1fr) 72px; gap: 4px 10px; font-size: 13px; align-items: center; }
+.bars .lbl { color: var(--text-secondary); position: relative; padding-bottom: 5px; }
+.bars .lbl i { position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 0 2px 2px 0; background: var(--cat-1); }
+.bars .val { text-align: right; font-variant-numeric: tabular-nums; }
+.amen { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.amen li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+.amen .st { white-space: nowrap; font-weight: 600; }
+.amen .st.a { color: var(--good); } .amen .st.n { color: var(--bad); } .amen .st.u { color: var(--text-muted); font-weight: 400; }
+.note { font-size: 12px; color: var(--text-muted); margin-top: 14px; }
+.notice { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);
+  position: sticky; top: -14px; background: var(--surface-1); padding: 6px 4px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td { padding: 5px 4px; border-bottom: 1px solid var(--border); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--surface-2); }
+tr.sel { background: var(--surface-2); font-weight: 600; }
+.legend { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; line-height: 1.5; max-width: 240px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.legend .t { font-weight: 600; margin-bottom: 4px; }
+.legend .row { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.legend .sw { width: 14px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.leaflet-container { background: var(--surface-1); font: inherit; }
+.leaflet-tooltip { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 6px 9px; font-size: 12.5px; }
+.leaflet-tooltip-top:before { border-top-color: var(--border); }
+.tt-n { font-weight: 650; } .tt-s { color: var(--text-secondary); }
+.leaflet-lines-pane canvas, .leaflet-lines-pane svg { pointer-events: none !important; }
+.leaflet-control-attribution { background: color-mix(in srgb, var(--surface-1) 85%, transparent) !important; color: var(--text-muted); }
+.leaflet-control-attribution a { color: var(--accent); }
+.leaflet-bar a { background: var(--surface-1); color: var(--text-primary); border-bottom-color: var(--border); }
+#loading { position: absolute; z-index: 1000; top: 12px; left: 50%; transform: translateX(-50%); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+#loading[hidden] { display: none; }
+.mapwrap { flex: 1; min-width: 0; position: relative; display: flex; }
+footer { padding: 0 16px 10px; font-size: 12px; color: var(--text-muted); }
+@media (max-width: 860px) {
+  html, body { height: auto; }
+  body { display: block; }
+  main { flex-direction: column; }
+  .mapwrap { flex: none; height: 62vh; }
+  aside { width: auto; flex: none; }
+  .pane { overflow: visible; }
+  select { max-width: 100%; width: 100%; }
+  .ctl { flex: 1 1 140px; }
+  .ctl:has(.vsearch) { flex-basis: 100%; }
+  .vsearch input { flex: 0 0 38%; width: auto; min-width: 0; }
+  .vsearch select { flex: 1; min-width: 0; }
+  .legend { font-size: 11px; max-width: 170px; padding: 6px 8px; }
+  .legend .row:last-child:not(:has(.sw)) { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>India Village Explorer</h1>
+  <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+</header>
+<div class="controls">
+  <div class="ctl"><label for="selState">State / UT</label><select id="selState"></select></div>
+  <div class="ctl"><label for="selDistrict">District</label><select id="selDistrict" disabled></select></div>
+  <div class="ctl"><label for="selSub">Sub-district</label><select id="selSub" disabled></select></div>
+  <div class="ctl"><label for="selVillage">Village / town</label>
+    <div class="vsearch"><input type="search" id="vFilter" placeholder="Filter…" disabled aria-label="Filter villages">
+      <select id="selVillage" disabled></select></div></div>
+  <div class="ctl"><label for="selMetric">Colour by</label><select id="selMetric"></select></div>
+  <div class="ctl"><label for="selBase">Basemap</label><select id="selBase">
+    <option value="">None</option><option value="streets">Streets</option><option value="satellite">Satellite</option></select></div>
+</div>
+<main>
+  <div class="mapwrap"><div id="map" role="application" aria-label="Map"></div><div id="loading" hidden></div></div>
+  <aside>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabSummary" aria-selected="true">Summary</button>
+      <button role="tab" id="tabTable" aria-selected="false">Table</button>
+    </div>
+    <div class="pane" id="paneSummary"></div>
+    <div class="pane" id="paneTable" hidden></div>
+  </aside>
+</main>
+<footer>Boundaries: Survey of India village boundaries. Attributes: Census 2011 Village Directory, so population figures are from 2011. District names are as recorded in the source (about 2020–21).</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+// ---------- data loading (script tags, so it also works from file://) ----------
+const cache = {}, waiting = {};
+window.SOI_LOAD = (key, data) => { cache[key] = data; (waiting[key] || []).forEach(f => f.res(data)); delete waiting[key]; };
+function load(key, src) {
+  if (cache[key]) return Promise.resolve(cache[key]);
+  return new Promise((res, rej) => {
+    const first = !waiting[key];
+    (waiting[key] = waiting[key] || []).push({ res, rej });
+    if (!first) return;
+    const s = document.createElement("script");
+    s.src = src;
+    s.onerror = () => { (waiting[key] || []).forEach(f => f.rej(new Error("Could not load " + src))); delete waiting[key]; };
+    document.head.appendChild(s);
+  });
+}
+function decode(str) {
+  const pts = []; let i = 0, lat = 0, lng = 0;
+  while (i < str.length) {
+    let b, shift = 0, r = 0;
+    do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << shift; shift += 5; } while (b >= 32);
+    lat += (r & 1) ? ~(r >> 1) : (r >> 1);
+    shift = 0; r = 0;
+    do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << shift; shift += 5; } while (b >= 32);
+    lng += (r & 1) ? ~(r >> 1) : (r >> 1);
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+const toLatLngs = g => g.map(poly => poly.map(decode));
+
+// ---------- formatting ----------
+const fin = x => x != null && isFinite(x);
+const fmtInt = x => fin(x) ? Math.round(x).toLocaleString("en-IN") : "–";
+const fmt1 = x => fin(x) ? x.toLocaleString("en-IN", { maximumFractionDigits: 1, minimumFractionDigits: x < 10 && x % 1 ? 1 : 0 }) : "–";
+const fmtPct = x => fin(x) ? x.toLocaleString("en-IN", { maximumFractionDigits: 1 }) + "%" : "–";
+const fmtArea = x => fin(x) ? (x < 10 ? x.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : Math.round(x).toLocaleString("en-IN")) : "–";
+const div = (a, b) => b > 0 ? a / b : null;
+const pct = (a, b) => b > 0 ? 100 * a / b : null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---------- labels ----------
+const AMENITY_LABELS = {
+  tapwater_treated_status: "Tap water (treated)", tapwater_untreated_status: "Tap water (untreated)",
+  covered_well_status: "Covered well", covered_well_function_year: "Covered well – works all year",
+  covered_well_functioning_summer: "Covered well – works in summer", uncovered_well_status: "Uncovered well",
+  uncovered_well_function_year: "Uncovered well – works all year", uncovered_well_function_summer: "Uncovered well – works in summer",
+  handpump_status: "Hand pump", hand_pump_function_year: "Hand pump – works all year", hand_pump_function_summer: "Hand pump – works in summer",
+  tubewell_borehole_status: "Tube well / borehole", tube_wells_borehole_function_year: "Tube well – works all year",
+  tube_wells_borehole_function_summer: "Tube well – works in summer", spring_status: "Spring",
+  spring_functioning_all_round_year: "Spring – flows all year", spring_functioning_summer_month: "Spring – flows in summer",
+  river_canal_status: "River / canal", tank_pond_lake_status: "Tank / pond / lake", others_status: "Other water source",
+  closed_drainage_status: "Closed drainage", open_drainage_status: "Open drainage", village_pin_code_status: "PIN code"
+};
+const LAND_LABELS = [
+  ["forest_area", "Forest"], ["area_under_non_agricultural_use", "Non-agricultural use"],
+  ["barren_uncultivable_land", "Barren & uncultivable"], ["permanent_pastures_grazing", "Pastures & grazing"],
+  ["land_under_miscellaneous", "Misc. tree crops & groves"], ["culturable_waste_land", "Culturable waste"],
+  ["fallows_land_other_than_current", "Fallow (other than current)"], ["current_fallows_area", "Current fallow"],
+  ["net_area_sown", "Net area sown"]];
+const IRR_LABELS = [
+  ["area_irrigated_by_source", "Irrigated (total)"], ["total_unirrigated_land", "Unirrigated"],
+  ["canals_area", "Canals"], ["wells_tube_wells_area", "Wells / tube wells"], ["tanks_lakes_area", "Tanks / lakes"],
+  ["waterfall_area", "Waterfall"], ["other_source_specify_area", "Other sources"]];
+
+// ---------- globals ----------
+let INDIA, I = {}, F = {}, AF = {};
+const S = { level: "india", st: null, dkey: null, sd: null, vi: null, metric: "pop", sort: { key: "value", dir: -1 } };
+let STATE = null, DIST = null, units = [], nav = 0;
+
+const map = L.map("map", { zoomSnap: 0.25, zoomDelta: 0.5, minZoom: 3.5, maxZoom: 17, attributionControl: true }).setView([22.5, 80], 4.5);
+function fit(bounds, opts) {   // layout may have changed since init; Leaflet drops a fit issued mid zoom-animation
+  map.invalidateSize();
+  if (map._animatingZoom) map.once("zoomend", () => map.fitBounds(bounds, opts)); else map.fitBounds(bounds, opts);
+}
+new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById("map"));
+map.createPane("lines").style.zIndex = 450;
+const mainR = L.canvas({ padding: 0.3, tolerance: 1 });
+const lineR = L.canvas({ pane: "lines", padding: 0.3 });
+const ctxLayer = L.layerGroup().addTo(map), mainLayer = L.layerGroup().addTo(map), lineLayer = L.layerGroup().addTo(map);
+const hoverLine = L.polygon([], { renderer: lineR, pane: "lines", interactive: false, fill: false, weight: 2 }).addTo(map);
+const selLine = L.polygon([], { renderer: lineR, pane: "lines", interactive: false, fill: false, weight: 3 }).addTo(map);
+const hoverDot = L.circleMarker([0, 0], { renderer: lineR, pane: "lines", interactive: false, fill: false, weight: 2, radius: 8 });
+const selDot = L.circleMarker([0, 0], { renderer: lineR, pane: "lines", interactive: false, fill: false, weight: 3, radius: 9 });
+map.attributionControl.setPrefix(false).addAttribution("Survey of India · Census 2011");
+// openstreetmap.org and CARTO refuse tile requests without a Referer, which is what a page opened from disk
+// sends, so both basemaps come from Esri. no-referrer makes http and file:// behave the same.
+const BASEMAPS = {
+  streets: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+    maxNativeZoom: 17, maxZoom: 19, referrerPolicy: "no-referrer", fillOpacity: 0.62,
+    attribution: "Tiles © Esri, HERE, Garmin, USGS, NGA" }),
+  satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxNativeZoom: 17, maxZoom: 19, referrerPolicy: "no-referrer", fillOpacity: 0.4,
+    attribution: "Imagery © Esri, Maxar, Earthstar Geographics" })
+};
+let basemap = "";
+function setBasemap(key) {
+  Object.values(BASEMAPS).forEach(l => map.removeLayer(l));
+  basemap = BASEMAPS[key] ? key : "";
+  if (basemap) BASEMAPS[basemap].addTo(map);
+  try { localStorage.setItem("soi-basemap", basemap); } catch (e) {}
+}
+const legend = L.control({ position: "bottomleft" });
+legend.onAdd = () => L.DomUtil.create("div", "legend");
+legend.addTo(map);
+
+// ---------- metrics ----------
+const AGG = ["pop", "households", "villages", "density", "sex_ratio", "hh_size", "pct_urban", "pct_irrigated", "pct_forest"];
+const VIL = ["pop", "households", "density", "sex_ratio", "hh_size", "pct_irrigated", "pct_forest", "town_km", "ur",
+  "amen:tapwater_treated_status", "amen:handpump_status", "amen:tubewell_borehole_status", "amen:closed_drainage_status", "amen:open_drainage_status"];
+const M = {
+  pop: { label: "Population", fmt: fmtInt, agg: s => s[I.pop], vil: r => r[F.pop] },
+  households: { label: "Households", fmt: fmtInt, agg: s => s[I.households], vil: r => r[F.households] },
+  villages: { label: "Villages & towns (count)", fmt: fmtInt, agg: s => s[I.villages] },
+  density: { label: "Density (people per km²)", fmt: x => fin(x) && x < 10 ? fmt1(x) : fmtInt(x), agg: s => div(s[I.pop], s[I.area_sq_km]),
+    vil: r => r[F.circle] ? null : div(r[F.pop], r[F.area_sq_km]) },
+  sex_ratio: { label: "Sex ratio (females per 1,000 males)", fmt: fmtInt, agg: s => div(1000 * s[I.female_sr], s[I.male_sr]),
+    vil: r => r[F.male] > 0 && r[F.female] > 0 ? 1000 * r[F.female] / r[F.male] : null },
+  hh_size: { label: "Average household size", fmt: fmt1, agg: s => div(s[I.pop], s[I.households]), vil: r => div(r[F.pop], r[F.households]) },
+  pct_urban: { label: "Urban share of population", fmt: fmtPct, agg: s => pct(s[I.urban_pop], s[I.pop]) },
+  pct_irrigated: { label: "Share of net sown area irrigated", fmt: fmtPct, agg: s => pct(s[I.irrigated_ha], s[I.net_sown_ha]),
+    vil: r => pct(r[F.area_irrigated_by_source], r[F.net_area_sown]) },
+  pct_forest: { label: "Forest share of village area", fmt: fmtPct, agg: s => pct(s[I.forest_ha], s[I.census_area_ha]),
+    vil: r => pct(r[F.forest_area], r[F.census_area_ha]) },
+  town_km: { label: "Distance to nearest town (km)", fmt: fmt1, vil: r => r[F.nearest_town_km] > 0 ? r[F.nearest_town_km] : null },
+  ur: { label: "Rural / urban", cats: ["Rural", "Urban"], vil: r => r[F.ur] === "U" ? "Urban" : r[F.ur] === "R" ? "Rural" : null }
+};
+function metric(key) {
+  if (key.startsWith("amen:")) {
+    const f = key.slice(5);
+    return { label: AMENITY_LABELS[f] || f, cats: ["Available", "Not available"],
+      vil: r => { const c = r[F.amenities][AF[f]]; return c === "A" ? "Available" : c === "N" ? "Not available" : null; } };
+  }
+  return M[key];
+}
+const levelMetrics = () => S.level === "district" ? VIL : AGG;
+
+// ---------- colour scale ----------
+function quantileBreaks(vals, k = 7) {
+  const v = vals.filter(fin).sort((a, b) => a - b);
+  if (!v.length) return [];
+  const b = [];
+  for (let i = 1; i < k; i++) b.push(v[Math.min(v.length - 1, Math.floor(i * v.length / k))]);
+  return [...new Set(b)].filter(x => x > v[0] || v.length === 1);
+}
+let scale = null;
+function buildScale() {
+  const m = metric(S.metric);
+  const seq = [1, 2, 3, 4, 5, 6, 7].map(i => cssVar("--seq-" + i));
+  const real = units.filter(u => !u.placeholder);
+  if (m.cats) {
+    const cols = [cssVar("--cat-1"), cssVar("--cat-2")];
+    scale = { m, cat: true, color: v => v == null ? null : cols[m.cats.indexOf(v)], items: m.cats.map((c, i) => [cols[i], c]) };
+    return;
+  }
+  const br = quantileBreaks(real.map(u => u.value));
+  const n = br.length + 1;
+  const colors = Array.from({ length: n }, (_, i) => seq[n === 1 ? 3 : Math.round(i * 6 / (n - 1))]);
+  const cls = v => { let i = 0; while (i < br.length && v >= br[i]) i++; return i; };
+  const items = colors.map((c, i) => {
+    const lo = i === 0 ? null : br[i - 1], hi = i < br.length ? br[i] : null;
+    const label = lo == null && hi == null ? "All values" : lo == null ? "under " + m.fmt(hi) : hi == null ? m.fmt(lo) + " and above" : m.fmt(lo) + " – " + m.fmt(hi);
+    return [c, label];
+  });
+  scale = { m, cat: false, color: v => fin(v) ? colors[cls(v)] : null, items };
+}
+function renderLegend() {
+  const el = legend.getContainer();
+  const hasNull = units.some(u => !u.placeholder && scale.color(u.value) == null);
+  const hasPh = units.some(u => u.placeholder);
+  el.innerHTML = `<div class="t">${esc(scale.m.label)}</div>` +
+    scale.items.map(([c, l]) => `<div class="row"><span class="sw" style="background:${c}"></span>${esc(l)}</div>`).join("") +
+    (hasNull ? `<div class="row"><span class="sw" style="background:${cssVar("--nodata")}"></span>No data</div>` : "") +
+    (hasPh ? `<div class="row"><span class="sw" style="background:${cssVar("--placeholder")}"></span>Forest / water / no census data</div>` : "") +
+    (units.some(u => u.point) ? `<div class="row"><span class="sw" style="width:10px;height:10px;margin:0 2px;border-radius:50%;border:1.5px solid var(--text-secondary)"></span>Dot: village location only, no boundary in source</div>` : "") +
+    (scale.cat ? "" : `<div class="row" style="color:var(--text-muted);margin-top:2px">Classes are quantiles of this view</div>`);
+}
+function styleOf(u) {
+  const base = basemap ? BASEMAPS[basemap].options.fillOpacity : 0.88;
+  const fill = u.placeholder ? cssVar("--placeholder") : (scale.color(u.value) || cssVar("--nodata"));
+  const dim = S.level === "district" && S.sd != null && u.sd !== S.sd;
+  if (u.point) return { fillColor: fill, fillOpacity: dim ? 0.25 : 0.95, color: cssVar("--surface-1"), weight: 1, opacity: dim ? 0.3 : 1 };
+  return { fillColor: fill, fillOpacity: dim ? 0.18 : base, color: cssVar("--surface-1"), weight: S.level === "district" ? 0.6 : 1, opacity: dim ? 0.3 : 1 };
+}
+function restyle() {
+  const m = metric(S.metric);
+  units.forEach(u => u.value = u.placeholder ? null : (u.row ? m.vil(u.row) : m.agg(u.stats)));
+  buildScale();
+  units.forEach(u => u.layer.setStyle(styleOf(u)));
+  ctxLayer.eachLayer(l => l.setStyle({ fillColor: cssVar("--context-fill"), color: cssVar("--context-line") }));
+  lineLayer.eachLayer(l => l.setStyle({ color: cssVar("--outline") }));
+  [hoverLine, hoverDot].forEach(l => l.setStyle({ color: cssVar("--text-secondary") }));
+  [selLine, selDot].forEach(l => l.setStyle({ color: cssVar("--text-primary") }));
+  renderLegend();
+  renderTable();
+}
+
+// ---------- map building ----------
+function tooltipHtml(u) {
+  const v = u.placeholder ? "No census data" : esc(scale.m.label) + ": <b>" + esc(scale.cat ? (u.value ?? "No data") : scale.m.fmt(u.value)) + "</b>";
+  const sub = u.row ? (DIST.subdistricts[u.row[F.sd]].name + (u.row[F.ur] === "U" ? " · Town" : "")) : u.sub || "";
+  return `<div class="tt-n">${esc(u.name)}</div>${sub ? `<div class="tt-s">${esc(sub)}</div>` : ""}<div>${v}</div>`;
+}
+// Villages without a boundary in the source are points: drawn as fixed-size dots, added after
+// the polygons so a large town polygon underneath never hides them.
+function addUnit(u, latlngs, point) {
+  u.point = !!point;
+  u.layer = point ? L.circleMarker(latlngs, { renderer: mainR, radius: 4.5 }) : L.polygon(latlngs, { renderer: mainR });
+  u.layer.bindTooltip(() => tooltipHtml(u), { sticky: true, direction: "top", offset: [0, -10], opacity: 1 });
+  u.layer.on("mouseover", () => mark("hover", u));
+  u.layer.on("mouseout", () => mark("hover", null));
+  u.layer.on("click", () => u.onClick());
+  if (!point) mainLayer.addLayer(u.layer);
+  units.push(u);
+}
+function mark(kind, u) {   // hover / selection outline for a unit (null clears it)
+  const line = kind === "hover" ? hoverLine : selLine, dot = kind === "hover" ? hoverDot : selDot;
+  line.setLatLngs(u && !u.point ? u.layer.getLatLngs() : []);
+  if (u && u.point) dot.setLatLng(u.layer.getLatLng()).addTo(map); else dot.remove();
+}
+function addContext(latlngs, name, onClick) {
+  const l = L.polygon(latlngs, { renderer: mainR, fillColor: cssVar("--context-fill"), fillOpacity: 1, color: cssVar("--context-line"), weight: 1 });
+  l.bindTooltip(`<div class="tt-n">${esc(name)}</div><div class="tt-s">Click to open</div>`, { sticky: true, direction: "top", offset: [0, -10], opacity: 1 });
+  l.on("click", onClick);
+  ctxLayer.addLayer(l);
+}
+function clearMap() {
+  ctxLayer.clearLayers(); mainLayer.clearLayers(); lineLayer.clearLayers();
+  mark("hover", null); mark("sel", null); units = [];
+}
+const bboxBounds = b => L.latLngBounds([b[0], b[1]], [b[2], b[3]]);
+
+function drawIndia() {
+  clearMap();
+  INDIA.states.forEach(s => addUnit({ kind: "state", key: s.st, name: s.name, stats: s.stats, onClick: () => goState(s.st) }, s._ll || (s._ll = toLatLngs(s.geom))));
+}
+function drawState() {
+  clearMap();
+  INDIA.states.forEach(s => { if (s.st !== S.st) addContext(s._ll || (s._ll = toLatLngs(s.geom)), s.name, () => goState(s.st)); });
+  STATE.districts.forEach(d => addUnit({ kind: "district", key: d.key, name: d.name, stats: d.stats, sub: STATE.name,
+    onClick: () => goDistrict(d.key) }, d._ll || (d._ll = toLatLngs(d.geom))));
+}
+function drawDistrict() {
+  clearMap();
+  STATE.districts.forEach(d => { if (d.key !== S.dkey) addContext(d._ll || (d._ll = toLatLngs(d.geom)), d.name, () => goDistrict(d.key)); });
+  if (!DIST._ll) DIST._ll = DIST.geoms.map(g => typeof g[0] === "number" ? g : toLatLngs(g));
+  DIST.rows.forEach((r, i) => addUnit({ kind: "village", key: i, name: r[F.village] || "(unnamed)", row: r, sd: r[F.sd],
+    placeholder: r[F.placeholder] === 1, onClick: () => selectVillage(i, false) }, DIST._ll[i], r[F.circle] === 1));
+  units.forEach(u => { if (u.point) mainLayer.addLayer(u.layer); });
+  DIST.subdistricts.forEach(sd => {
+    if (!sd._ll) sd._ll = toLatLngs(sd.geom);
+    lineLayer.addLayer(L.polygon(sd._ll, { renderer: lineR, pane: "lines", interactive: false, fill: false, weight: 1.6, color: cssVar("--outline") }));
+  });
+}
+
+// ---------- navigation ----------
+function busy(msg) { const el = document.getElementById("loading"); el.textContent = msg || ""; el.hidden = !msg; }
+async function goIndia() {
+  nav++;
+  Object.assign(S, { level: "india", st: null, dkey: null, sd: null, vi: null });
+  STATE = DIST = null;
+  drawIndia(); afterNav();
+  fit(bboxBounds(indiaBbox()), { padding: [10, 10] });
+}
+async function goState(st, keepView) {
+  const id = ++nav;
+  const s = INDIA.states.find(x => x.st === st);
+  busy("Loading " + s.name + "…");
+  try { STATE = await load("s:" + st, "data/s/" + st + ".js"); } catch (e) { busy(); alert(e.message); return; }
+  busy();
+  if (id !== nav) return;
+  Object.assign(S, { level: "state", st, dkey: null, sd: null, vi: null });
+  DIST = null;
+  drawState(); afterNav();
+  if (!keepView) fit(bboxBounds(s.bbox), { padding: [10, 10] });
+}
+async function goDistrict(dkey, then) {
+  const id = ++nav;
+  const d = STATE.districts.find(x => x.key === dkey);
+  busy("Loading villages of " + d.name + "…");
+  try { DIST = await load(`d:${S.st}:${dkey}`, `data/d/${S.st}/${dkey}.js`); } catch (e) { busy(); alert(e.message); return; }
+  if (id !== nav) { busy(); return; }
+  Object.assign(S, { level: "district", dkey, sd: null, vi: null });
+  F = Object.fromEntries(DIST.fields.map((f, i) => [f, i]));
+  $("vFilter").value = "";
+  drawDistrict(); busy(); afterNav();
+  fit(bboxBounds(d.bbox), { padding: [10, 10] });
+  if (then) then();
+}
+function selectSub(sd, zoom = true) {
+  S.sd = sd; S.vi = null; mark("sel", null);
+  if (sd != null && zoom) fit(L.polygon(DIST.subdistricts[sd]._ll).getBounds(), { padding: [20, 20] });
+  if (sd != null) selLine.setLatLngs(DIST.subdistricts[sd]._ll);
+  afterNav();
+}
+function selectVillage(i, zoom) {
+  const u = units[i], leaveSub = S.sd != null && u.sd !== S.sd;
+  S.vi = i;
+  if (leaveSub) S.sd = null;
+  mark("sel", u);
+  if (zoom) {
+    const b = u.point ? L.latLngBounds([u.layer.getLatLng(), u.layer.getLatLng()]) : u.layer.getBounds();
+    if (!map.getBounds().contains(b) || map.getZoom() < 11) fit(b, { maxZoom: 14, padding: [40, 40] });
+  }
+  if (leaveSub) afterNav();
+  else {   // cheap path: no restyle of every polygon
+    $("selVillage").value = String(i);
+    renderCrumbs(); renderSummary(); writeHash();
+    $("paneTable").querySelectorAll("tr.sel").forEach(tr => tr.classList.remove("sel"));
+    $("paneTable").querySelector(`tr[data-i="${i}"]`)?.classList.add("sel");
+  }
+  showTab("summary");
+}
+function indiaBbox() {
+  const b = [90, 180, -90, -180];
+  INDIA.states.forEach(s => { b[0] = Math.min(b[0], s.bbox[0]); b[1] = Math.min(b[1], s.bbox[1]); b[2] = Math.max(b[2], s.bbox[2]); b[3] = Math.max(b[3], s.bbox[3]); });
+  return b;
+}
+function afterNav() {
+  syncMetricOptions();
+  restyle();
+  syncSelects();
+  renderCrumbs();
+  renderSummary();
+  writeHash();
+}
+
+// ---------- controls ----------
+const $ = id => document.getElementById(id);
+function opt(value, label, selected) { const o = document.createElement("option"); o.value = value; o.textContent = label; if (selected) o.selected = true; return o; }
+function syncMetricOptions() {
+  const sel = $("selMetric"), keys = levelMetrics();
+  if (!keys.includes(S.metric)) S.metric = "pop";
+  sel.innerHTML = "";
+  const groups = S.level === "district"
+    ? [["People", ["pop", "households", "density", "sex_ratio", "hh_size"]], ["Land", ["pct_irrigated", "pct_forest", "town_km", "ur"]],
+       ["Amenities", keys.filter(k => k.startsWith("amen:"))]]
+    : [["People", ["pop", "households", "villages", "density", "sex_ratio", "hh_size", "pct_urban"]], ["Land", ["pct_irrigated", "pct_forest"]]];
+  groups.forEach(([g, ks]) => { const og = document.createElement("optgroup"); og.label = g; ks.forEach(k => og.appendChild(opt(k, metric(k).label, k === S.metric))); sel.appendChild(og); });
+}
+function syncSelects() {
+  const ss = $("selState");
+  ss.innerHTML = ""; ss.appendChild(opt("", "All India", !S.st));
+  [...INDIA.states].sort((a, b) => a.name.localeCompare(b.name)).forEach(s => ss.appendChild(opt(s.st, s.name, s.st === S.st)));
+  const sd = $("selDistrict");
+  sd.innerHTML = ""; sd.disabled = !STATE;
+  sd.appendChild(opt("", STATE ? "All districts (" + STATE.districts.length + ")" : "—", !S.dkey));
+  if (STATE) STATE.districts.forEach(d => sd.appendChild(opt(d.key, d.name, d.key === S.dkey)));
+  const sb = $("selSub");
+  sb.innerHTML = ""; sb.disabled = !DIST || S.level !== "district";
+  sb.appendChild(opt("", DIST && S.level === "district" ? "All sub-districts (" + DIST.subdistricts.length + ")" : "—", S.sd == null));
+  if (DIST && S.level === "district") DIST.subdistricts.forEach((x, i) => sb.appendChild(opt(i, x.name, i === S.sd)));
+  fillVillages();
+}
+function fillVillages() {
+  const sv = $("selVillage"), f = $("vFilter"), on = S.level === "district";
+  sv.disabled = f.disabled = !on;
+  sv.innerHTML = "";
+  if (!on) { sv.appendChild(opt("", "—")); f.value = ""; return; }
+  const q = f.value.trim().toLowerCase();
+  const list = units.filter(u => !u.placeholder && (S.sd == null || u.sd === S.sd) && (!q || u.name.toLowerCase().includes(q) || u.row[F.vlcode].includes(q)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  sv.appendChild(opt("", (q ? "Matches" : "All") + " (" + list.length.toLocaleString("en-IN") + ")", S.vi == null));
+  const frag = document.createDocumentFragment();
+  list.forEach(u => frag.appendChild(opt(u.key, u.name + (S.sd == null ? " · " + DIST.subdistricts[u.sd].name : "") + (u.row[F.ur] === "U" ? " (town)" : ""), u.key === S.vi)));
+  sv.appendChild(frag);
+}
+$("selState").onchange = e => e.target.value ? goState(e.target.value) : goIndia();
+$("selDistrict").onchange = e => e.target.value ? goDistrict(e.target.value) : goState(S.st);
+$("selSub").onchange = e => selectSub(e.target.value === "" ? null : +e.target.value);
+$("selVillage").onchange = e => { if (e.target.value !== "") selectVillage(+e.target.value, true); else { S.vi = null; mark("sel", null); afterNav(); } };
+$("vFilter").oninput = fillVillages;
+$("selMetric").onchange = e => { S.metric = e.target.value; restyle(); renderSummary(); writeHash(); };
+$("selBase").onchange = e => { setBasemap(e.target.value); restyle(); };
+try { const b = localStorage.getItem("soi-basemap"); if (BASEMAPS[b]) { setBasemap(b); $("selBase").value = b; } } catch (e) {}
+function showTab(t) {
+  $("tabSummary").setAttribute("aria-selected", t === "summary"); $("tabTable").setAttribute("aria-selected", t === "table");
+  $("paneSummary").hidden = t !== "summary"; $("paneTable").hidden = t !== "table";
+}
+$("tabSummary").onclick = () => showTab("summary");
+$("tabTable").onclick = () => showTab("table");
+
+function renderCrumbs() {
+  const parts = [`<a data-go="india">India</a>`];
+  if (STATE) parts.push(S.level === "state" && S.sd == null ? `<span>${esc(STATE.name)}</span>` : `<a data-go="state">${esc(STATE.name)}</a>`);
+  if (S.level === "district") {
+    parts.push(S.sd == null && S.vi == null ? `<span>${esc(DIST.name)}</span>` : `<a data-go="district">${esc(DIST.name)}</a>`);
+    if (S.sd != null) parts.push(S.vi == null ? `<span>${esc(DIST.subdistricts[S.sd].name)}</span>` : `<a data-go="sub">${esc(DIST.subdistricts[S.sd].name)}</a>`);
+    if (S.vi != null) parts.push(`<span>${esc(units[S.vi].name)}</span>`);
+  }
+  const el = $("crumbs");
+  el.innerHTML = parts.join(`<span class="sep">›</span>`);
+  el.querySelectorAll("a").forEach(a => a.onclick = () => {
+    const g = a.dataset.go;
+    if (g === "india") goIndia(); else if (g === "state") goState(S.st);
+    else if (g === "district") { S.sd = null; S.vi = null; mark("sel", null); fit(bboxBounds(STATE.districts.find(d => d.key === S.dkey).bbox)); afterNav(); }
+    else if (g === "sub") selectSub(S.sd);
+  });
+}
+
+// ---------- side panel ----------
+function sumStats(list) { const out = new Array(INDIA.stat_fields.length).fill(0); list.forEach(s => s.forEach((v, i) => out[i] += v)); return out; }
+function scopeInfo() {
+  if (S.level === "india") return { kind: "Country", name: "India", sub: INDIA.states.length + " states and union territories", stats: sumStats(INDIA.states.map(s => s.stats)) };
+  const st = INDIA.states.find(x => x.st === S.st);
+  if (S.level === "state") return { kind: "State / UT", name: st.name, sub: STATE.districts.length + " districts", stats: st.stats };
+  const d = STATE.districts.find(x => x.key === S.dkey);
+  if (S.sd != null) { const x = DIST.subdistricts[S.sd]; return { kind: "Sub-district", name: x.name, sub: d.name + " district, " + st.name, stats: x.stats }; }
+  return { kind: "District", name: d.name, sub: st.name + " · " + DIST.subdistricts.length + " sub-districts" + (d.dtcode ? " · Census code " + d.dtcode : ""), stats: d.stats };
+}
+function tile(k, v, wide) { return `<div class="tile${wide ? " wide" : ""}"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`; }
+function renderSummary() {
+  const el = $("paneSummary");
+  if (S.level === "district" && S.vi != null) { el.innerHTML = villageHtml(units[S.vi]); bindCsv(); return; }
+  const sc = scopeInfo(), s = sc.stats;
+  const towns = s[I.urban_units], vills = s[I.villages] - towns;
+  el.innerHTML = `<div class="scope-kind">${esc(sc.kind)}</div><div class="scope-name">${esc(sc.name)}</div><div class="scope-sub">${esc(sc.sub)}</div>
+  <div class="tiles">
+    ${tile("Population (2011)", fmtInt(s[I.pop]), true)}
+    ${tile("Households", fmtInt(s[I.households]))}${tile("Avg household size", fmt1(div(s[I.pop], s[I.households])))}
+    ${tile("Villages", fmtInt(vills))}${tile("Towns (urban units)", fmtInt(towns))}
+    ${tile("Area (km²)", fmtInt(s[I.area_sq_km]))}${tile("Density (per km²)", fmtInt(div(s[I.pop], s[I.area_sq_km])))}
+    ${tile("Sex ratio (F per 1,000 M)", fmtInt(div(1000 * s[I.female_sr], s[I.male_sr])))}${tile("Urban share", fmtPct(pct(s[I.urban_pop], s[I.pop])))}
+    ${tile("Net sown area irrigated", fmtPct(pct(s[I.irrigated_ha], s[I.net_sown_ha])))}${tile("Forest share of village area", fmtPct(pct(s[I.forest_ha], s[I.census_area_ha])))}
+  </div>
+  ${s[I.circle_villages] > 0 ? `<div class="notice">${fmtInt(s[I.circle_villages])} of the ${fmtInt(s[I.villages])} villages and towns here (${fmtPct(pct(s[I.circle_villages], s[I.villages]))}) have no boundary in the source. At village level they appear as dots at their location.</div>` : ""}
+  ${S.level === "district" ? `<button id="btnCsv">Download ${S.sd != null ? "sub-district" : "district"} villages as CSV</button>` : ""}
+  <p class="note">${S.level === "india" ? "Click a state on the map, or choose one above, to see its districts." :
+    S.level === "state" ? "Click a district to load its villages." : "Click a village to see its details. Bold lines are sub-district boundaries."}
+  The sex ratio counts only units that report both male and female population, since many towns record neither.</p>`;
+  bindCsv();
+}
+function villageHtml(u) {
+  const r = u.row, sdName = DIST.subdistricts[r[F.sd]].name;
+  const head = `<div class="scope-kind">${r[F.ur] === "U" ? "Town / urban unit" : u.placeholder ? "Non-census polygon" : "Village"}</div>
+    <div class="scope-name">${esc(u.name)}</div><div class="scope-sub">${esc(sdName)}, ${esc(DIST.name)} district, ${esc(STATE.name)}</div>`;
+  if (u.placeholder) return head + `<div class="notice">This polygon has no Census data (code 999999). The source uses such shapes for reserve forests, water bodies and land that wasn't surveyed.</div>
+    <dl class="kv"><dt>Area</dt><dd>${fmtArea(r[F.area_sq_km])} km²</dd><dt>SOI object id</dt><dd>${r[F.objectid]}</dd></dl>`;
+  const pop = r[F.pop], ha = r[F.census_area_ha], circle = r[F.circle] === 1;
+  const bars = (list, total) => {
+    const max = Math.max(1, ...list.map(([k]) => r[F[k]] || 0));
+    return `<div class="bars">` + list.map(([k, l]) => { const v = r[F[k]] || 0;
+      return `<div class="lbl">${esc(l)}<i style="width:${(100 * v / max).toFixed(1)}%"></i></div><div class="val">${fmtInt(v)}${total > 0 && v ? ` <span style="color:var(--text-muted)">${Math.round(100 * v / total)}%</span>` : ""}</div>`; }).join("") + `</div>`;
+  };
+  const amen = INDIA.amenity_fields.map((f, i) => { const c = r[F.amenities][i];
+    return `<li><span>${esc(AMENITY_LABELS[f] || f)}</span><span class="st ${c === "A" ? "a" : c === "N" ? "n" : "u"}">${c === "A" ? "✓ Available" : c === "N" ? "✗ Not available" : "no data"}</span></li>`; }).join("");
+  return head + (circle ? `<div class="notice">The source has no boundary for this village, only its location. It is drawn as a dot, so polygon area and density aren't available.</div>` : "") + `<div class="tiles">
+    ${tile("Population (2011)", fmtInt(pop), true)}
+    ${tile("Male", fmtInt(r[F.male]))}${tile("Female", fmtInt(r[F.female]))}
+    ${tile("Households", fmtInt(r[F.households]))}${tile("Avg household size", fmt1(div(pop, r[F.households])))}
+    ${tile("Sex ratio (F per 1,000 M)", fmtInt(M.sex_ratio.vil(r)))}${tile("Density (per km²)", M.density.fmt(M.density.vil(r)))}
+  </div>
+  <h3>Identity</h3><dl class="kv">
+    <dt>Census village code</dt><dd>${esc(r[F.vlcode])}</dd>
+    <dt>Sub-district</dt><dd>${esc(sdName)}</dd>
+    <dt>Block</dt><dd>${esc(r[F.block] || "–")}</dd>
+    <dt>Gram panchayat</dt><dd>${esc(r[F.gram_panchayat_name] || "–")}${r[F.gram_panchayat_code] ? " (" + esc(r[F.gram_panchayat_code]) + ")" : ""}</dd>
+    <dt>Polygon area</dt><dd>${circle ? "no boundary" : fmtArea(r[F.area_sq_km]) + " km²"}</dd>
+    <dt>Census area</dt><dd>${fmtInt(ha)} ha</dd>
+    <dt>Nearest town</dt><dd>${esc(r[F.nearest_town_name] || "–")}${r[F.nearest_town_km] > 0 ? " · " + fmt1(r[F.nearest_town_km]) + " km" : ""}</dd>
+    <dt>SOI object id</dt><dd>${r[F.objectid]}</dd>
+  </dl>
+  <h3>Land use (hectares)</h3>${bars(LAND_LABELS, ha)}
+  <h3>Irrigation (hectares)</h3>${bars(IRR_LABELS, r[F.net_area_sown])}
+  <h3>Drinking water, drainage & post</h3><ul class="amen">${amen}</ul>
+  <p class="note">Census 2011 Village Directory. Land-use figures don't always add up to the total area in the source data.</p>`;
+}
+function bindCsv() {
+  const b = $("btnCsv"); if (!b) return;
+  b.onclick = () => {
+    const cols = DIST.fields.filter(f => f !== "amenities" && f !== "sd");
+    const head = ["state", "district", "subdistrict", ...cols, ...INDIA.amenity_fields];
+    const q = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const lines = [head.join(",")];
+    units.filter(u => S.sd == null || u.sd === S.sd).forEach(u => {
+      const r = u.row;
+      lines.push([STATE.name, DIST.name, DIST.subdistricts[r[F.sd]].name, ...cols.map(c => c === "placeholder" ? (r[F[c]] ? "yes" : "no") : r[F[c]]),
+        ...INDIA.amenity_fields.map((f, i) => ({ A: "Available", N: "Not Available" }[r[F.amenities][i]] || ""))].map(q).join(","));
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv" }));
+    a.download = `${S.st}_${S.dkey}${S.sd != null ? "_" + DIST.subdistricts[S.sd].name.replace(/\W+/g, "-") : ""}_villages.csv`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+}
+
+// ---------- table view ----------
+function renderTable() {
+  const el = $("paneTable"), m = scale.m;
+  const list = units.filter(u => !u.placeholder && (S.level !== "district" || S.sd == null || u.sd === S.sd));
+  const { key, dir } = S.sort;
+  const val = u => u.value;
+  list.sort((a, b) => key === "name" ? dir * a.name.localeCompare(b.name)
+    : (val(a) == null) - (val(b) == null) || (scale.cat ? dir * String(val(a)).localeCompare(String(val(b))) : dir * ((val(a) ?? 0) - (val(b) ?? 0))));
+  const what = S.level === "india" ? "State / UT" : S.level === "state" ? "District" : "Village / town";
+  const arrow = k => k === key ? (dir > 0 ? " ↑" : " ↓") : "";
+  const shown = list.slice(0, 6000);
+  el.innerHTML = `<table><thead><tr><th data-k="name">${what}${arrow("name")}</th>${S.level === "district" && S.sd == null ? "<th>Sub-district</th>" : ""}
+    <th class="num" data-k="value">${esc(m.label)}${arrow("value")}</th></tr></thead><tbody>` +
+    shown.map(u => `<tr data-i="${units.indexOf(u)}"${S.vi === units.indexOf(u) ? ' class="sel"' : ""}><td>${esc(u.name)}</td>
+      ${S.level === "district" && S.sd == null ? `<td>${esc(DIST.subdistricts[u.sd].name)}</td>` : ""}
+      <td class="num">${esc(scale.cat ? (u.value ?? "–") : m.fmt(u.value))}</td></tr>`).join("") + `</tbody></table>` +
+    (list.length > shown.length ? `<p class="note">Showing the first ${shown.length.toLocaleString("en-IN")} of ${list.length.toLocaleString("en-IN")}. Pick a sub-district to narrow the list.</p>` : "");
+  el.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
+    const k = th.dataset.k; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : (k === "name" ? 1 : -1) }; renderTable();
+  });
+  el.querySelector("tbody").onclick = e => {
+    const tr = e.target.closest("tr"); if (!tr) return;
+    if (S.level === "district") selectVillage(+tr.dataset.i, true); else units[+tr.dataset.i].onClick();
+  };
+  el.querySelector("tbody").onmouseover = e => { const tr = e.target.closest("tr"); if (tr) mark("hover", units[+tr.dataset.i]); };
+  el.querySelector("tbody").onmouseleave = () => mark("hover", null);
+}
+
+// ---------- URL hash: #/st/district/sub-or-v/... ----------
+function writeHash() {
+  let h = "#/";
+  if (S.st) h += S.st;
+  if (S.dkey) h += "/" + S.dkey;
+  if (S.level === "district" && S.vi != null) h += "/v/" + units[S.vi].row[F.objectid];
+  else if (S.level === "district" && S.sd != null) h += "/s/" + S.sd;
+  h += "?m=" + encodeURIComponent(S.metric);
+  history.replaceState(null, "", h);
+}
+async function readHash() {
+  const [path, query] = location.hash.replace(/^#\/?/, "").split("?");
+  const m = new URLSearchParams(query || "").get("m");
+  if (m && (M[m] || m.startsWith("amen:"))) S.metric = m;
+  const [st, dkey, kind, id] = (path || "").split("/");
+  if (!st || !INDIA.states.some(s => s.st === st)) return goIndia();
+  await goState(st, !!dkey);
+  if (!dkey || !STATE.districts.some(d => d.key === dkey)) return;
+  await goDistrict(dkey);
+  if (kind === "s" && DIST.subdistricts[+id]) selectSub(+id);
+  if (kind === "v") { const i = units.findIndex(u => String(u.row[F.objectid]) === id); if (i >= 0) selectVillage(i, true); }
+}
+
+// ---------- start ----------
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => units.length && restyle());
+load("india", "data/india.js").then(d => {
+  INDIA = d;
+  I = Object.fromEntries(d.stat_fields.map((f, i) => [f, i]));
+  AF = Object.fromEntries(d.amenity_fields.map((f, i) => [f, i]));
+  readHash();
+  window.addEventListener("hashchange", readHash);   // pasted links / back button (writeHash uses replaceState, so no loop)
+}).catch(e => { $("paneSummary").innerHTML = `<div class="notice">${esc(e.message)}. Keep index.html next to its data folder.</div>`; });
+</script>
+</body>
+</html>
